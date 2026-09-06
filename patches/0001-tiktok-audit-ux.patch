@@ -691,10 +691,28 @@ index c5fc647..e07d398 100644
    @IsString()
    @JSONSchema({
 diff --git a/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts b/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts
-index fff84f7..d2acbd6 100644
+index fff84f7..e2db9fc 100644
 --- a/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts
 +++ b/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts
-@@ -391,6 +391,40 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
+@@ -31,13 +31,14 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
+   name = 'Tiktok';
+   isBetweenSteps = false;
+   convertToJPEG = true;
++  // Day2: only the scopes the app actually exercises. video.list and
++  // user.info.stats fed TikTok analytics, which we do not use; every scope
++  // requested must be demonstrated in TikTok's app review.
+   scopes = [
+-    'video.list',
+     'user.info.basic',
++    'user.info.profile',
+     'video.publish',
+     'video.upload',
+-    'user.info.profile',
+-    'user.info.stats',
+   ];
+   override maxConcurrentJob = 10000;
+   dto = TikTokDto;
+@@ -391,6 +392,40 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
      };
    }
  
@@ -735,7 +753,7 @@ index fff84f7..d2acbd6 100644
    async maxVideoLength(accessToken: string) {
      const {
        data: { max_video_post_duration_sec },
-@@ -520,8 +554,9 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
+@@ -520,8 +555,9 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
              ? { title: firstPost.message }
              : {}),
            ...(isPhoto ? { description: firstPost.message } : {}),
@@ -747,7 +765,7 @@ index fff84f7..d2acbd6 100644
            ...(isPhoto
              ? {}
              : { disable_duet: !this.assetBoolean(firstPost.settings.duet) }),
-@@ -799,6 +834,21 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
+@@ -799,6 +835,21 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
      const isPhoto = !hasExtension(firstPost?.media?.[0]?.path, 'mp4');
      const videoPath = firstPost?.media?.[0]?.path!;
  
