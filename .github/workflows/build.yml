@@ -14,7 +14,7 @@ on:
         required: true
       image_tag:
         description: Image tag to publish
-        default: v2.22.1-day2.1
+        default: v2.22.1-day2.2
         required: true
   push:
     branches: [main]
@@ -24,7 +24,7 @@ on:
 
 env:
   POSTIZ_REF: ${{ github.event.inputs.postiz_ref || 'v2.22.1' }}
-  IMAGE_TAG: ${{ github.event.inputs.image_tag || 'v2.22.1-day2.1' }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || 'v2.22.1-day2.2' }}
   IMAGE: ghcr.io/barikosl/postiz-day2
 
 jobs:
