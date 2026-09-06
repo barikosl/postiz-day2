@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+build/
+out/
+.tmp/
+*.lock
+package-lock.json
+**/generated/**
+**/*.min.js
+**/*.map
+graphify-out/
+e2e/
+test-results/
+playwright-report/
