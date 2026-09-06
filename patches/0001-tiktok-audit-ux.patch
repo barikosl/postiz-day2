@@ -641,7 +641,7 @@ index 907c29f..7833158 100644
    );
  };
 diff --git a/libraries/nestjs-libraries/src/dtos/posts/providers-settings/tiktok.dto.ts b/libraries/nestjs-libraries/src/dtos/posts/providers-settings/tiktok.dto.ts
-index c5fc647..e07d398 100644
+index c5fc647..5ad3d3c 100644
 --- a/libraries/nestjs-libraries/src/dtos/posts/providers-settings/tiktok.dto.ts
 +++ b/libraries/nestjs-libraries/src/dtos/posts/providers-settings/tiktok.dto.ts
 @@ -1,5 +1,5 @@
@@ -682,7 +682,52 @@ index c5fc647..e07d398 100644
    })
    privacy_level:
      | 'PUBLIC_TO_EVERYONE'
-@@ -80,6 +87,18 @@ export class TikTokDto {
+@@ -37,19 +44,23 @@ export class TikTokDto {
+     | 'FOLLOWER_OF_CREATOR'
+     | 'SELF_ONLY';
+ 
++  // Day2: the composer only shows Duet/Stitch for videos (TikTok has no such
++  // setting for photos), so they may be absent; absent = off.
++  @IsOptional()
+   @IsBoolean()
+   @JSONSchema({
+     description:
+-      'Video posts only, and only when content_posting_method=DIRECT_POST. TikTok has no duet setting for photo posts.',
++      'Video posts only, and only when content_posting_method=DIRECT_POST. TikTok has no duet setting for photo posts. Omitted = off.',
+   })
+-  duet: boolean;
++  duet?: boolean;
+ 
++  @IsOptional()
+   @IsBoolean()
+   @JSONSchema({
+     description:
+-      'Video posts only, and only when content_posting_method=DIRECT_POST. TikTok has no stitch setting for photo posts.',
++      'Video posts only, and only when content_posting_method=DIRECT_POST. TikTok has no stitch setting for photo posts. Omitted = off.',
+   })
+-  stitch: boolean;
++  stitch?: boolean;
+ 
+   @IsBoolean()
+   @JSONSchema({
+@@ -58,12 +69,14 @@ export class TikTokDto {
+   })
+   comment: boolean;
+ 
++  // Day2: shown for photo posts only; absent for videos.
++  @IsOptional()
+   @IsIn(['yes', 'no'])
+   @JSONSchema({
+     description:
+-      'Photo posts only, and only when content_posting_method=DIRECT_POST. Ignored by TikTok on UPLOAD.',
++      'Photo posts only, and only when content_posting_method=DIRECT_POST. Ignored by TikTok on UPLOAD. Omitted = no.',
+   })
+-  autoAddMusic: 'yes' | 'no';
++  autoAddMusic?: 'yes' | 'no';
+ 
+   @IsBoolean()
+   @JSONSchema({
+@@ -80,6 +93,18 @@ export class TikTokDto {
    })
    video_made_with_ai: boolean;
  
@@ -701,7 +746,7 @@ index c5fc647..e07d398 100644
    @IsBoolean()
    @JSONSchema({
      description:
-@@ -87,6 +106,15 @@ export class TikTokDto {
+@@ -87,6 +112,15 @@ export class TikTokDto {
    })
    brand_organic_toggle: boolean;
  
