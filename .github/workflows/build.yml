@@ -1,0 +1,97 @@
+name: Build postiz-day2
+
+# Builds upstream Postiz at a pinned tag with the Day2 patches applied and
+# pushes the image to ghcr.io/barikosl/postiz-day2. The home server
+# (postiz.day2-ai.com) cannot build Postiz itself (8GB box), so this runner
+# does the heavy lifting.
+
+on:
+  workflow_dispatch:
+    inputs:
+      postiz_ref:
+        description: Upstream postiz-app tag/ref to build from
+        default: v2.22.1
+        required: true
+      image_tag:
+        description: Image tag to publish
+        default: v2.22.1-day2.1
+        required: true
+  push:
+    branches: [main]
+    paths:
+      - patches/**
+      - .github/workflows/build.yml
+
+env:
+  POSTIZ_REF: ${{ github.event.inputs.postiz_ref || 'v2.22.1' }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || 'v2.22.1-day2.1' }}
+  IMAGE: ghcr.io/barikosl/postiz-day2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout day2 patches
+        uses: actions/checkout@v4
+        with:
+          path: day2
+
+      - name: Checkout upstream Postiz
+        uses: actions/checkout@v4
+        with:
+          repository: gitroomhq/postiz-app
+          ref: ${{ env.POSTIZ_REF }}
+          path: postiz
+
+      - name: Free runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
+      - name: Apply Day2 patches
+        working-directory: postiz
+        run: |
+          set -euo pipefail
+          for p in ../day2/patches/*.patch; do
+            echo "applying $p"
+            git apply --whitespace=nowarn "$p"
+          done
+          # Graph API v20.0 is retired by Meta on 2026-09-24 (upstream #1807 unfixed).
+          # Same rewrite the sed-only postiz-day2:v2.22.1-graph23 layer did, now at source level.
+          grep -rl 'v20\.0' libraries/nestjs-libraries/src/integrations/social \
+            | xargs sed -i -e 's#graph\.facebook\.com/v20\.0#graph.facebook.com/v23.0#g' \
+                           -e 's#facebook\.com/v20\.0/dialog#facebook.com/v23.0/dialog#g'
+          echo "remaining v20.0 references (expect none):"
+          grep -rn 'v20\.0' libraries/nestjs-libraries/src/integrations/social || true
+          echo "day2: tiktok audit ux (creator_info, no privacy default, declarations, processing notice) + graph api v20.0 -> v23.0; upstream ${POSTIZ_REF} $(git rev-parse --short HEAD); image ${IMAGE_TAG}" > DAY2_PATCH.txt
+          git --no-pager diff --stat
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to ghcr
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push
+        working-directory: postiz
+        run: |
+          docker buildx build --platform linux/amd64 \
+            -f Dockerfile.dev \
+            --build-arg NEXT_PUBLIC_VERSION=${IMAGE_TAG} \
+            --label org.opencontainers.image.source=https://github.com/barikosl/postiz-day2 \
+            --label org.opencontainers.image.description="Postiz ${POSTIZ_REF} + Day2 TikTok audit UX + Graph v23" \
+            --provenance=false --sbom=false \
+            -t ${IMAGE}:${IMAGE_TAG} \
+            -t ${IMAGE}:latest \
+            --push .
+
+      - name: Verify
+        run: docker buildx imagetools inspect ${IMAGE}:${IMAGE_TAG}
