@@ -1,5 +1,5 @@
 diff --git a/apps/frontend/src/components/new-launch/providers/tiktok/tiktok.provider.tsx b/apps/frontend/src/components/new-launch/providers/tiktok/tiktok.provider.tsx
-index 907c29f..e3b507d 100644
+index 907c29f..722c432 100644
 --- a/apps/frontend/src/components/new-launch/providers/tiktok/tiktok.provider.tsx
 +++ b/apps/frontend/src/components/new-launch/providers/tiktok/tiktok.provider.tsx
 @@ -1,9 +1,6 @@
@@ -281,7 +281,7 @@ index 907c29f..e3b507d 100644
        <Select
          label={t('label_content_posting_method', 'Content posting method')}
          {...register('content_posting_method', {
-@@ -162,96 +263,174 @@ const TikTokSettings: FC<{
+@@ -162,97 +263,175 @@ const TikTokSettings: FC<{
            </option>
          ))}
        </Select>
@@ -348,14 +348,14 @@ index 907c29f..e3b507d 100644
 +        )}
 +        {videoTooLong && (
 +          <div className="text-red-600 text-[13px] mb-[18px] text-balance">
-+            {t(
++            {String(t(
 +              'tiktok_video_too_long',
 +              'This video is {{duration}} seconds long, but this TikTok account can post videos of up to {{max}} seconds. Please use a shorter video.',
 +              {
 +                duration: Math.round(videoDuration || 0),
 +                max: maxDuration,
 +              } as any
-+            )}
++            ))}
 +          </div>
 +        )}
 +      </div>
@@ -509,15 +509,18 @@ index 907c29f..e3b507d 100644
 +                <WarningIcon fill="white" />
                </div>
                <div>
-                 {t(
+-                {t(
 -                  'your_video_will_be_labeled_promotional',
 -                  'Your video will be labeled "Promotional Content".'
+-                )}
++                {String(t(
 +                  'tiktok_your_media_will_be_labeled',
 +                  'Your {{media}} will be labeled as \'{{label}}\'.',
 +                  { media: mediaWord, label: discloseLabel } as any
-                 )}
++                ))}
                  <br />
                  {t(
+                   'this_cannot_be_changed_once_posted',
 @@ -261,12 +440,14 @@ const TikTokSettings: FC<{
                </div>
              </div>
