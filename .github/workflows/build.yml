@@ -14,7 +14,7 @@ on:
         required: true
       image_tag:
         description: Image tag to publish
-        default: v2.22.1-day2.3
+        default: v2.22.1-day2.4
         required: true
   push:
     branches: [main]
@@ -24,7 +24,7 @@ on:
 
 env:
   POSTIZ_REF: ${{ github.event.inputs.postiz_ref || 'v2.22.1' }}
-  IMAGE_TAG: ${{ github.event.inputs.image_tag || 'v2.22.1-day2.3' }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || 'v2.22.1-day2.4' }}
   IMAGE: ghcr.io/barikosl/postiz-day2
 
 jobs:
@@ -67,8 +67,32 @@ jobs:
                            -e 's#facebook\.com/v20\.0/dialog#facebook.com/v23.0/dialog#g'
           echo "remaining v20.0 references (expect none):"
           grep -rn 'v20\.0' libraries/nestjs-libraries/src/integrations/social || true
-          echo "day2: tiktok audit ux (creator_info, no privacy default, declarations, processing notice) + graph api v20.0 -> v23.0; upstream ${POSTIZ_REF} $(git rev-parse --short HEAD); image ${IMAGE_TAG}" > DAY2_PATCH.txt
+          echo "day2: tiktok audit ux (creator_info, no privacy default, declarations, processing notice) + day2 branding (favicon/logo/titles) + graph api v20.0 -> v23.0; upstream ${POSTIZ_REF} $(git rev-parse --short HEAD); image ${IMAGE_TAG}" > DAY2_PATCH.txt
           git --no-pager diff --stat
+
+      - name: Apply Day2 branding assets
+        run: |
+          set -euo pipefail
+          # TikTok app review (14/09/2026) rejected the app because the icon on
+          # postiz.day2-ai.com did not match the "Day2 Social Publisher" app icon
+          # registered on the developer portal. These three files are generated
+          # from that exact app icon and MUST stay in sync with it.
+          cp day2/branding/favicon.ico   postiz/apps/frontend/public/favicon.ico
+          cp day2/branding/favicon.png   postiz/apps/frontend/public/favicon.png
+          cp day2/branding/day2-icon.png postiz/apps/frontend/public/day2-icon.png
+          ls -la postiz/apps/frontend/public/favicon.ico                  postiz/apps/frontend/public/favicon.png                  postiz/apps/frontend/public/day2-icon.png
+
+      - name: Verify no Postiz branding left on the review path
+        working-directory: postiz
+        run: |
+          set -euo pipefail
+          # Fails the build if the login/composer surface a TikTok reviewer sees
+          # regains Postiz branding after an upstream bump.
+          if grep -rn "Postiz" apps/frontend/src/app --include=*.tsx | grep -v "Day2 branding"; then
+            echo "::error::Postiz branding found under apps/frontend/src/app"
+            exit 1
+          fi
+          echo "review path is clean"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -87,7 +111,7 @@ jobs:
             -f Dockerfile.dev \
             --build-arg NEXT_PUBLIC_VERSION=${IMAGE_TAG} \
             --label org.opencontainers.image.source=https://github.com/barikosl/postiz-day2 \
-            --label org.opencontainers.image.description="Postiz ${POSTIZ_REF} + Day2 TikTok audit UX + Graph v23" \
+            --label org.opencontainers.image.description="Postiz ${POSTIZ_REF} + Day2 TikTok audit UX + Day2 branding + Graph v23" \
             --provenance=false --sbom=false \
             -t ${IMAGE}:${IMAGE_TAG} \
             -t ${IMAGE}:latest \
