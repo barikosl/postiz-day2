@@ -240,9 +240,7 @@ export function validateChoices(body, info, rec) {
 
 // ── handlers ─────────────────────────────────────────────────────────────────
 async function createLink(req, res, reqId) {
-  const key = String(req.headers['x-admin-key'] || '');
-  const ok = key.length === ADMIN_KEY.length && crypto.timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY));
-  if (!ok) {
+  if (!adminOk(req)) {
     audit({ reqId, action: 'link.create', result: 'denied', ip: sha(clientIp(req)).slice(0, 12) });
     return send(res, 401, { error: 'unauthorized' });
   }
@@ -283,7 +281,7 @@ async function createLink(req, res, reqId) {
 
 async function info(token, res) {
   const rec = readLink(token);
-  if (!rec) return send(res, 404, { error: 'not_found' });
+  if (!rec || rec.kind === 'connect') return send(res, 404, { error: 'not_found' });
   if (expired(rec) && rec.status === 'ready') return send(res, 410, { error: 'expired' });
   const base = {
     business: rec.business,
@@ -301,7 +299,7 @@ async function info(token, res) {
 
 async function publish(token, req, res, reqId) {
   const rec = readLink(token);
-  if (!rec) return send(res, 404, { error: 'not_found' });
+  if (!rec || rec.kind === 'connect') return send(res, 404, { error: 'not_found' });
   if (expired(rec)) return send(res, 410, { error: 'expired' });
   if (rec.status !== 'ready') return send(res, 409, { error: 'already_' + rec.status });
 
@@ -381,7 +379,56 @@ async function status(token, res) {
   return send(res, 200, { status: 'processing' });
 }
 
-const STATIC_FILES = { 'app.js': 'text/javascript; charset=utf-8', 'app.css': 'text/css; charset=utf-8', 'page.html': null };
+// ── owner connect links ──────────────────────────────────────────────────────
+// A raw TikTok authorize URL dies after an hour (Postiz keeps the OAuth state in
+// Redis for 3600s), so owners get a stable link to our page instead. The page
+// explains what is being connected; its button mints a fresh authorize URL from
+// the Postiz public API at click time and redirects to TikTok's consent screen.
+function adminOk(req) {
+  const key = String(req.headers['x-admin-key'] || '');
+  return key.length === ADMIN_KEY.length && crypto.timingSafeEqual(Buffer.from(key), Buffer.from(ADMIN_KEY));
+}
+
+async function createConnectLink(req, res, reqId) {
+  if (!adminOk(req)) {
+    audit({ reqId, action: 'connect.create', result: 'denied', ip: sha(clientIp(req)).slice(0, 12) });
+    return send(res, 401, { error: 'unauthorized' });
+  }
+  const body = await readJson(req);
+  const business = typeof body.business === 'string' && body.business.length <= 120 ? body.business : '';
+  const lang = body.lang === 'en' ? 'en' : 'he';
+  const ttlDays = Math.min(Math.max(Number(body.ttlDays) || 7, 1), LINK_TTL_DAYS_MAX);
+  const token = crypto.randomBytes(32).toString('base64url');
+  writeLink(token, {
+    v: 1,
+    kind: 'connect',
+    business,
+    lang,
+    createdAt: now(),
+    expiresAt: new Date(Date.now() + ttlDays * 86400000).toISOString(),
+    status: 'ready',
+    ref: typeof body.ref === 'string' ? body.ref.slice(0, 120) : null,
+  });
+  audit({ reqId, action: 'connect.create', result: 'ok', link: sha(token).slice(0, 12) });
+  return send(res, 201, { url: `${PUBLIC_BASE}/connect/${token}${lang === 'en' ? '?lang=en' : ''}` });
+}
+
+async function connectGo(token, res, reqId) {
+  const rec = readLink(token);
+  if (!rec || rec.kind !== 'connect' || expired(rec)) return send(res, 410, { error: 'expired' });
+  const r = await postiz('/social/tiktok');
+  const url = r.body?.url;
+  if (!r.ok || typeof url !== 'string' || !/^https:\/\/www\.tiktok\.com\/v2\/auth\/authorize\/?\?/.test(url) || !/client_key=[^&]+/.test(url)) {
+    audit({ reqId, action: 'connect.go', result: 'error', link: sha(token).slice(0, 12), status: r.status });
+    return send(res, 502, { error: 'connect_unavailable' });
+  }
+  writeLink(token, { ...rec, lastClickAt: now(), clicks: (rec.clicks || 0) + 1 });
+  audit({ reqId, action: 'connect.go', result: 'redirect', link: sha(token).slice(0, 12) });
+  res.writeHead(302, { Location: url, ...SECURITY_HEADERS });
+  return res.end();
+}
+
+const STATIC_FILES = { 'app.js': 'text/javascript; charset=utf-8', 'connect.js': 'text/javascript; charset=utf-8', 'app.css': 'text/css; charset=utf-8' };
 function staticFile(name, res) {
   if (!Object.prototype.hasOwnProperty.call(STATIC_FILES, name) || !STATIC_FILES[name]) return send(res, 404, { error: 'not_found' });
   return send(res, 200, fs.readFileSync(path.join(STATIC, name)), STATIC_FILES[name]);
@@ -405,6 +452,27 @@ const server = http.createServer(async (req, res) => {
     }
     if (parts.length === 3 && parts[1] === 'static') return staticFile(parts[2], res);
     if (parts.length === 3 && parts[1] === 'api' && parts[2] === 'links' && req.method === 'POST') return await createLink(req, res, reqId);
+    if (parts.length === 3 && parts[1] === 'api' && parts[2] === 'connect-links' && req.method === 'POST') return await createConnectLink(req, res, reqId);
+    if (parts[1] === 'connect') {
+      const ct = parts[2];
+      if (!ct || !TOKEN_RE.test(ct)) return send(res, 404, { error: 'not_found' });
+      if (parts.length === 3 && req.method === 'GET') {
+        const rec = readLink(ct);
+        if (!rec || rec.kind !== 'connect') return send(res, 404, { error: 'not_found' });
+        return send(res, 200, fs.readFileSync(path.join(STATIC, 'connect.html')), 'text/html; charset=utf-8');
+      }
+      if (parts.length === 4 && parts[3] === 'info' && req.method === 'GET') {
+        const rec = readLink(ct);
+        if (!rec || rec.kind !== 'connect') return send(res, 404, { error: 'not_found' });
+        if (expired(rec)) return send(res, 410, { error: 'expired' });
+        return send(res, 200, { business: rec.business, lang: rec.lang });
+      }
+      if (parts.length === 4 && parts[3] === 'go' && req.method === 'GET') {
+        if (limited('go:' + sha(ct), 10, 60000)) return send(res, 429, { error: 'rate_limited' });
+        return await connectGo(ct, res, reqId);
+      }
+      return send(res, 404, { error: 'not_found' });
+    }
 
     const token = parts[1];
     if (!token || !TOKEN_RE.test(token)) return send(res, 404, { error: 'not_found' });

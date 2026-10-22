@@ -41,6 +41,10 @@ before(async () => {
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify([{ postId: 'post' + postsCreated.length, integration: 'int1' }]));
       }
+      if (req.url === '/api/public/v1/social/tiktok') {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        return res.end(JSON.stringify({ url: 'https://www.tiktok.com/v2/auth/authorize/?client_key=abc&scope=user.info.basic&state=s1' }));
+      }
       if (req.url.startsWith('/api/public/v1/posts?')) {
         res.writeHead(200, { 'content-type': 'application/json' });
         return res.end(JSON.stringify({ posts: [{ id: 'post1', state: postState, releaseURL: postState === 'PUBLISHED' ? 'https://www.tiktok.com/@haim/video/1' : null }] }));
@@ -239,4 +243,25 @@ test('audit log records publishes without tokens or captions', async () => {
   const log = fs.readFileSync(path.join(tmp, 'audit.log'), 'utf8');
   assert.match(log, /"action":"publish","result":"submitted"/);
   assert.doesNotMatch(log, /edited by owner/);
+});
+
+test('connect link: page, info, redirect to TikTok consent; not usable as a publish link', async () => {
+  const r = await fetch(`${base}/publish/api/connect-links`, {
+    method: 'POST', headers: { 'content-type': 'application/json', 'x-admin-key': ADMIN },
+    body: JSON.stringify({ business: 'Haim', lang: 'en' }),
+  });
+  assert.equal(r.status, 201);
+  const ct = (await j(r)).url.split('/connect/')[1].split('?')[0];
+  assert.equal((await fetch(`${base}/publish/connect/${ct}`)).status, 200);
+  assert.equal((await j(await fetch(`${base}/publish/connect/${ct}/info`))).business, 'Haim');
+  const go = await fetch(`${base}/publish/connect/${ct}/go`, { redirect: 'manual' });
+  assert.equal(go.status, 302);
+  assert.match(go.headers.get('location'), /^https:\/\/www\.tiktok\.com\/v2\/auth\/authorize\/\?client_key=abc/);
+  assert.equal((await fetch(`${base}/publish/${ct}/info`)).status, 404);
+  assert.equal((await pub(ct, good)).status, 404);
+});
+
+test('connect link creation needs the admin key', async () => {
+  const r = await fetch(`${base}/publish/api/connect-links`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+  assert.equal(r.status, 401);
 });
