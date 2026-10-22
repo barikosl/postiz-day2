@@ -1,3 +1,5 @@
 graphify-out/
 .mcp.json
 .graphifyignore
+publish-service/data/
+publish-service/.env

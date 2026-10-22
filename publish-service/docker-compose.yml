@@ -1,0 +1,27 @@
+# /opt/stacks/tiktok-publish on the home box (100.118.127.14).
+# Served at https://postiz.day2-ai.com/publish/* via the postiz tunnel path rule.
+services:
+  tiktok-publish:
+    build: .
+    image: tiktok-publish:local
+    container_name: tiktok-publish
+    restart: unless-stopped
+    env_file: .env            # POSTIZ_API_KEY, ADMIN_KEY (chmod 600, not in git)
+    environment:
+      POSTIZ_API_URL: http://postiz:5000/api
+      PUBLIC_BASE: https://postiz.day2-ai.com/publish
+    ports:
+      - "127.0.0.1:4010:4010"
+    volumes:
+      - ./data:/data
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 96m
+    pids_limit: 64
+    networks: [postiz]
+networks:
+  postiz:
+    external: true
+    name: compose_postiz-network

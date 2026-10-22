@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Post to TikTok · Day2 Social Publisher</title>
+<link rel="icon" href="https://postiz.day2-ai.com/favicon.ico">
+<link rel="stylesheet" href="/publish/static/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">D2</span><span data-t="brand">Day2 Social Publisher</span></div>
+  <button id="lang" class="lang" type="button">English</button>
+</header>
+
+<main id="app" class="wrap">
+  <p id="loading" class="muted" data-t="loading">טוען…</p>
+
+  <section id="gone" class="card hidden">
+    <h1 data-t="gone_title">הקישור לא בתוקף</h1>
+    <p data-t="gone_body">הקישור פג או שכבר נעשה בו שימוש. אם צריך קישור חדש, כתבו לנו בוואטסאפ.</p>
+  </section>
+
+  <form id="form" class="hidden" novalidate>
+    <h1 data-t="title">פרסום לטיקטוק</h1>
+    <p class="muted" id="intro"></p>
+
+    <!-- 1. Account: fresh creator_info -->
+    <div class="card account" id="account">
+      <img id="avatar" alt="" width="44" height="44">
+      <div>
+        <div class="muted small" data-t="posting_as">מפרסם לחשבון הטיקטוק</div>
+        <div id="nickname" class="strong" dir="auto"></div>
+      </div>
+    </div>
+    <div id="cannot" class="alert hidden" data-t="cannot_post">טיקטוק לא מאפשר לחשבון הזה לפרסם כרגע. נסו שוב מאוחר יותר.</div>
+
+    <!-- 2. Preview -->
+    <div class="card">
+      <h2 data-t="preview">תצוגה מקדימה</h2>
+      <video id="video" controls playsinline preload="metadata"></video>
+      <p id="toolong" class="alert hidden"></p>
+    </div>
+
+    <!-- 3. Caption -->
+    <div class="card">
+      <label for="caption" class="h2" data-t="caption">כיתוב</label>
+      <textarea id="caption" rows="5" maxlength="2200"></textarea>
+      <div class="muted small"><span id="count">0</span>/2200 · <span data-t="caption_hint">אפשר לערוך לפני הפרסום</span></div>
+    </div>
+
+    <!-- 4. Privacy: no default, options from creator_info -->
+    <div class="card">
+      <label for="privacy" class="h2" data-t="who_can_see">מי יכול לראות את הסרטון?</label>
+      <select id="privacy" required>
+        <option value="" data-t="select_privacy">בחרו…</option>
+      </select>
+      <p id="privacy_note" class="muted small hidden" data-t="branded_not_private">תוכן ממומן לא יכול להיות פרטי.</p>
+    </div>
+
+    <!-- 5. Interactions: off by default, greyed when the creator disabled them -->
+    <div class="card">
+      <h2 data-t="allow_users">לאפשר לצופים</h2>
+      <label class="check" id="l_comment"><input type="checkbox" id="comment"> <span data-t="comment">תגובות</span></label>
+      <label class="check" id="l_duet"><input type="checkbox" id="duet"> <span data-t="duet">דואט</span></label>
+      <label class="check" id="l_stitch"><input type="checkbox" id="stitch"> <span data-t="stitch">סטיץ'</span></label>
+      <p id="interact_note" class="muted small hidden" data-t="interact_disabled">אפשרויות באפור כבויות בהגדרות חשבון הטיקטוק שלכם.</p>
+    </div>
+
+    <!-- 6. Commercial content disclosure: off by default -->
+    <div class="card">
+      <label class="switch"><input type="checkbox" id="disclose"> <span class="h2" data-t="disclose">גילוי תוכן מסחרי</span></label>
+      <p class="muted small" data-t="disclose_help">הפעילו אם הסרטון מקדם מוצרים או שירותים בתמורה למשהו בעל ערך. הסרטון יכול לקדם אתכם, צד שלישי, או את שניהם.</p>
+      <div id="disclose_box" class="hidden">
+        <label class="check"><input type="checkbox" id="yourBrand"> <span><b data-t="your_brand">המותג שלכם</b><br><span class="muted small" data-t="your_brand_help">אתם מקדמים את עצמכם או את העסק שלכם.</span></span></label>
+        <label class="check" id="l_branded"><input type="checkbox" id="brandedContent"> <span><b data-t="branded">תוכן ממומן</b><br><span class="muted small" data-t="branded_help">אתם מקדמים מותג אחר או צד שלישי.</span></span></label>
+        <p id="label_note" class="note hidden"></p>
+        <p id="pick_one" class="alert hidden" data-t="pick_one">צריך לציין אם התוכן מקדם אתכם, צד שלישי, או את שניהם.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <label class="check"><input type="checkbox" id="aigc"> <span data-t="aigc">הסרטון נוצר בעזרת AI</span></label>
+    </div>
+
+    <!-- 7. Declaration right before the button -->
+    <p id="declaration" class="declaration"></p>
+
+    <button id="publish" type="submit" class="primary" disabled data-t="publish">פרסום לטיקטוק</button>
+    <p id="publish_hint" class="muted small center"></p>
+    <p id="error" class="alert hidden"></p>
+  </form>
+
+  <section id="done" class="card hidden">
+    <h1 id="done_title"></h1>
+    <p id="done_body"></p>
+    <p><a id="done_link" class="hidden" target="_blank" rel="noopener" data-t="view_post">לצפייה בפוסט</a></p>
+  </section>
+</main>
+
+<footer class="foot">
+  <a href="https://day2-ai.com/blog/terms-of-service" target="_blank" rel="noopener" data-t="terms">תנאי שימוש</a> ·
+  <a href="https://day2-ai.com/blog/privacy-policy" target="_blank" rel="noopener" data-t="privacy_policy">מדיניות פרטיות</a> ·
+  <a href="https://day2-ai.com/services/social-video" target="_blank" rel="noopener">Day2 AI</a>
+</footer>
+<script src="/publish/static/app.js"></script>
+</body>
+</html>

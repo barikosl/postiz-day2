@@ -1,0 +1,101 @@
+diff --git a/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts b/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts
+index e2db9fc..870b80e 100644
+--- a/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts
++++ b/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.ts
+@@ -17,6 +17,7 @@ import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+ import { createReadStream, statSync } from 'fs';
+ import { Integration } from '@prisma/client';
+ import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
++import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+ 
+ @Rules(
+   [
+@@ -395,6 +396,14 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
+   // Day2: exposed to the composer through POST /integrations/function
+   // (name: "creatorInfo"). Everything TikTok's UX guidelines want shown or
+   // enforced before publishing comes from this single creator_info call.
++  // Also a @Tool, so the owner publish page (tiktok-publish service) can read
++  // it through the public API POST /public/v1/integration-trigger/:id, which
++  // refreshes an expired token the same way the composer path does.
++  @Tool({
++    description:
++      'TikTok creator_info: nickname, avatar, privacy_level_options, comment/duet/stitch disabled flags, max_video_post_duration_sec',
++    dataSchema: [],
++  })
+   async creatorInfo(accessToken: string) {
+     const response = await (
+       await this.fetch(
+@@ -426,6 +435,57 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
+     };
+   }
+ 
++  private async assertCreatorCanPost(
++    firstPost: PostDetails<TikTokDto>,
++    accessToken: string,
++    isPhoto: boolean
++  ) {
++    const info: any = await this.creatorInfo(accessToken);
++    const settings = firstPost.settings || ({} as TikTokDto);
++    const fail = (code: string, message: string) => {
++      throw new BadBody(
++        code,
++        JSON.stringify(settings),
++        Buffer.from(JSON.stringify(settings)),
++        message
++      );
++    };
++
++    if (info?.error) {
++      fail(
++        'tiktok-creator-cannot-post',
++        `TikTok says this account cannot post right now (${info.error}). Please try again later.`
++      );
++    }
++
++    const options: string[] = info?.privacy_level_options || [];
++    if (!settings.privacy_level || !options.includes(settings.privacy_level)) {
++      fail(
++        'tiktok-privacy-not-allowed',
++        'Please select who can see this video from the options TikTok allows for this account.'
++      );
++    }
++
++    if (this.assetBoolean(settings.comment) && info.comment_disabled) {
++      fail(
++        'tiktok-comment-disabled',
++        'Comments are turned off in this TikTok account, so they cannot be allowed for this post.'
++      );
++    }
++    if (!isPhoto && this.assetBoolean(settings.duet) && info.duet_disabled) {
++      fail(
++        'tiktok-duet-disabled',
++        'Duet is turned off in this TikTok account, so it cannot be allowed for this post.'
++      );
++    }
++    if (!isPhoto && this.assetBoolean(settings.stitch) && info.stitch_disabled) {
++      fail(
++        'tiktok-stitch-disabled',
++        'Stitch is turned off in this TikTok account, so it cannot be allowed for this post.'
++      );
++    }
++  }
++
+   async maxVideoLength(accessToken: string) {
+     const {
+       data: { max_video_post_duration_sec },
+@@ -850,6 +910,15 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
+       );
+     }
+ 
++    // Day2: publish-time check against FRESH creator_info. The composer and
++    // the owner page check this when they render, but a post can be published
++    // later (scheduled) or created through the API, and TikTok requires that
++    // we stop when the creator cannot post now and only send settings the
++    // creator is allowed to use.
++    if (this.contentPostingMethod(firstPost) === 'DIRECT_POST') {
++      await this.assertCreatorCanPost(firstPost, accessToken, isPhoto);
++    }
++
+     // For videos we only need the total size up front (HEAD / statSync) so we
+     // can init the upload; the bytes themselves are streamed later, never fully
+     // loaded into memory.
