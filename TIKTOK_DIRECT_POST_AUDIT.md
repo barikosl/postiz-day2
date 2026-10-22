@@ -113,3 +113,53 @@ These are the exact four items Postra was rejected on, plus the privacy default 
 ## 6. Unverifiable without TikTok
 
 Whether reviewers treat "agency edits, owner publishes" (A) as acceptable is unknown; the guidelines only exclude accounts "you or your team manages". Approval is not guaranteed under any option.
+
+---
+
+## 7. Implementation status (22/10, same day)
+
+| Gap | Status | Where |
+|---|---|---|
+| 1–3 owner chooses + presses Post | **Built + deployed** | `publish-service/` → `https://postiz.day2-ai.com/publish/<token>` |
+| 1–3 our automation can't Direct Post | **Enforced** | `social-publish/scripts/postiz-client.mjs` validation refuses TikTok unless `UPLOAD`; `SKILL.md` §5 rewritten; new `tiktok-owner-link.mjs` |
+| 4 clean video | **Policy written, automation pending** | `SKILL.md` requires a clean cut; the HF/branded render has no "clean" mode yet → produce it manually until then |
+| 5 demo shows a successful Direct Post | Pending recording | `TIKTOK_AUDIT_SUBMISSION_CHECKLIST.md` |
+| 7–9, 14 publish-time creator_info check | **Built + deployed** | `patches/0003` (`assertCreatorCanPost`), image `v2.22.1-day2.5` |
+| creator_info via public API | **Built + deployed** | `patches/0003` (`@Tool` creatorInfo) |
+| 17 duplicate publishing | **Built** for the owner page (exclusive lock, one post per link, 5xx → `unconfirmed`, never auto-retried) | `server.mjs` |
+| 18 English website | **Built** | `https://postiz.day2-ai.com/publish/about` |
+
+## 8. Test report
+
+**Automated:** `node --test publish-service/test/server.test.mjs` → **19 pass, 0 fail** (mock Postiz; nothing reaches TikTok). The cases:
+- admin key
+- media URL allowlist
+- fresh creator_info with no privacy default
+- no privacy selected
+- privacy not offered for this creator
+- private-only account
+- disabled duet
+- branded + private
+- disclosure without a type
+- missing consent
+- creator_info failure
+- too long
+- the exact payload sent
+- double click / retry → one post
+- Postiz 4xx vs 5xx
+- status → PUBLISHED
+- expired link
+- malformed token / CSP
+- audit log without secrets
+
+**Build:** GH Actions run 39729147262 green (Nest + Next type check with patch 0003).
+
+**Live (production, read-only):**
+- `integration-trigger` → `creatorInfo` on Haim's channel returned nickname/options. The expired token was refreshed by Postiz.
+- The page renders in a browser at 1280px (en) and 390px (he, RTL).
+- In the browser: branded content greys out "Only me" and clears it; the declaration switches; Post stays disabled without a privacy choice.
+
+**Not verified yet:**
+- A real Direct Post from the page (needs the private test account, at the recording).
+- Expired-OAuth handling, end to end, on a channel whose refresh token is also dead: Postiz disconnects the channel (seen on the old sandbox "Pickok" channel); the page then shows "cannot post".
+- Postiz worker retry behaviour (row 17, server side).
