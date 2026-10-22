@@ -163,3 +163,16 @@ Whether reviewers treat "agency edits, owner publishes" (A) as acceptable is unk
 - A real Direct Post from the page (needs the private test account, at the recording).
 - Expired-OAuth handling, end to end, on a channel whose refresh token is also dead: Postiz disconnects the channel (seen on the old sandbox "Pickok" channel); the page then shows "cannot post".
 - Postiz worker retry behaviour (row 17, server side).
+
+## 9. Token encryption (added 22/10, Bar's request)
+
+| | |
+|---|---|
+| What | `Integration.token` / `refreshToken` encrypted with AES-256-GCM (`enc:v1:<iv>:<tag>:<ct>`) |
+| How | `patches/0004`: Prisma middleware in `PrismaService`. It encrypts on every Integration write and decrypts every read, including nested reads like `post.integration`. |
+| Key | `DAY2_TOKEN_KEY` in `/opt/stacks/postiz/compose/.env` (not in the pg_dump backups); copy at `~/.config/postiz/token-key` on the laptop. **Losing it = every channel reconnects.** |
+| Image | `v2.22.1-day2.6`, GH run 39732154787 green |
+| Migration | All 3 existing rows encrypted (one-off script, plain PrismaClient) |
+| Verified | DB shows `enc:v1:` for all rows; `creatorInfo` on Haim works through decrypt; integrations list intact; tamper → GCM auth failure (unit test) |
+| Rollback | `deploy-day2.sh v2.22.1-day2.5` will **not** read encrypted rows. Restore `backups/Integration-pre-encrypt-20261022-061649.sql` first (plaintext, chmod 600; delete after a week). |
+| Residual | pg_dump backups taken before 22/10 still hold plaintext tokens (14-day rotation clears them by 05/11). |

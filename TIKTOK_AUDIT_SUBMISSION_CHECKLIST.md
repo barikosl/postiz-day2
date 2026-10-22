@@ -4,7 +4,7 @@
 **Built on 22/10:**
 - the owner "Post to TikTok" page at `https://postiz.day2-ai.com/publish/<token>`
 - the English product page at `https://postiz.day2-ai.com/publish/about`
-- Postiz image `v2.22.1-day2.5`
+- Postiz image `v2.22.1-day2.6` (channel tokens encrypted at rest)
 - the pipeline guard: Day2 can no longer direct-post TikTok
 
 ## A. Before recording
@@ -45,9 +45,9 @@ Export at 1080p H.264, ≤ 50 MB. Check the file name on the Review step.
   - Day2 never chooses privacy and never posts on the owner's behalf.
   - Owners may instead receive the video as a draft in their TikTok inbox.
 - **Users per day:** under 100. Today about 10 client businesses, 1 on TikTok, each posting 2–6 videos a month.
-- **Data stored:** access/refresh tokens (in the database on a private server not exposed to the internet), open_id, display name, avatar, publish_id / share URL.
+- **Data stored:** access/refresh tokens **encrypted with AES-256-GCM** at the application layer before they reach the database (Postiz `v2.22.1-day2.6`, key outside the DB and its backups), open_id, display name, avatar, publish_id / share URL.
   - Nothing from creator_info is stored.
-  - Correct the 14/10 answer, which said "encrypted tokens": the Postiz DB stores them unencrypted. Do not repeat that claim.
+  - The 14/10 answer said "encrypted tokens" while they were not; since 22/10 they are, so the statement is now true.
 - **What changed since the last submission:**
   - The owner now presses Post on a dedicated page; Day2's own automation can no longer Direct Post.
   - The video in the demo has no added logo.

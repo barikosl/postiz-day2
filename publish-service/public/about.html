@@ -35,7 +35,7 @@
 
   <div class="card">
     <h2>TikTok data we store</h2>
-    <p>The account's access and refresh tokens (in our database on a private server that is not exposed to the internet; only the publishing service can read them), the account's open_id, display name and avatar, and the publish_id / share URL of each post. Nothing returned by creator_info is stored; it is fetched fresh every time the posting page opens. Owners can disconnect at any time.</p>
+    <p>The account's access and refresh tokens, encrypted with AES-256-GCM before they are written to our database (the key is kept separately from the database and its backups; the database runs on a private network and is not exposed to the internet), the account's open_id, display name and avatar, and the publish_id / share URL of each post. Nothing returned by creator_info is stored; it is fetched fresh every time the posting page opens. Owners can disconnect at any time.</p>
   </div>
 
   <div class="card">
