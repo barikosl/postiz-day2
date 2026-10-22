@@ -181,7 +181,8 @@
     hide('loading');
     if (data.status !== 'ready') return finished(data.status, data.releaseURL);
     var c = data.creator || {};
-    $('nickname').textContent = c.nickname ? '@' + (c.username || c.nickname) + ' · ' + c.nickname : '';
+    var handle = c.username ? '@' + c.username : '';
+    $('nickname').textContent = c.nickname && c.nickname !== c.username ? c.nickname + (handle ? ' · ' + handle : '') : (handle || c.nickname || '');
     if (c.avatar) $('avatar').src = c.avatar; else hide('avatar');
     if (c.error) show('cannot');
     $('video').src = data.video;

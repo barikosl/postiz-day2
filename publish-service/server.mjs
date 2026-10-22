@@ -400,6 +400,9 @@ const server = http.createServer(async (req, res) => {
     if (limited('ip:' + ip, 120, 60000)) return send(res, 429, { error: 'rate_limited' });
 
     if (parts.length === 2 && parts[1] === 'healthz') return send(res, 200, { ok: true });
+    if (parts.length === 1 || (parts.length === 2 && parts[1] === 'about')) {
+      return send(res, 200, fs.readFileSync(path.join(STATIC, 'about.html')), 'text/html; charset=utf-8');
+    }
     if (parts.length === 3 && parts[1] === 'static') return staticFile(parts[2], res);
     if (parts.length === 3 && parts[1] === 'api' && parts[2] === 'links' && req.method === 'POST') return await createLink(req, res, reqId);
 
