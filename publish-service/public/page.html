@@ -52,10 +52,14 @@
 
     <!-- 4. Privacy: no default, options from creator_info -->
     <div class="card">
-      <label for="privacy" class="h2" data-t="who_can_see">מי יכול לראות את הסרטון?</label>
-      <select id="privacy" required>
-        <option value="" data-t="select_privacy">בחרו…</option>
-      </select>
+      <label id="privacy_lbl" for="privacy_btn" class="h2" data-t="who_can_see">מי יכול לראות את הסרטון?</label>
+      <div class="dd" id="privacy_dd">
+        <button type="button" id="privacy_btn" class="dd-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="privacy_lbl privacy_label">
+          <span id="privacy_label" class="placeholder"></span><span class="caret" aria-hidden="true">▾</span>
+        </button>
+        <ul id="privacy_list" class="dd-list hidden" role="listbox"></ul>
+      </div>
+      <input type="hidden" id="privacy" value="">
       <p id="privacy_note" class="muted small hidden" data-t="branded_not_private">תוכן ממומן לא יכול להיות פרטי.</p>
     </div>
 

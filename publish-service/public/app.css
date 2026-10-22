@@ -39,4 +39,12 @@ select { appearance: auto; }
 .primary { width: 100%; border: 0; border-radius: 10px; padding: 14px; font: inherit; font-weight: 700; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
 .primary:disabled { background: var(--disabled); cursor: not-allowed; }
 .foot { text-align: center; font-size: 13px; color: var(--muted); padding: 24px 16px 32px; }
+.dd { position: relative; }
+.dd-btn { width: 100%; display: flex; justify-content: space-between; align-items: center; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; cursor: pointer; text-align: start; }
+.dd-btn .placeholder, #privacy_label.placeholder { color: var(--muted); }
+.dd-list { position: absolute; inset-inline: 0; top: calc(100% + 4px); z-index: 5; list-style: none; margin: 0; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
+.dd-list li { padding: 10px; border-radius: 6px; cursor: pointer; }
+.dd-list li:hover { background: var(--note-bg); }
+.dd-list li[aria-selected="true"] { font-weight: 600; }
+.dd-list li[aria-disabled="true"] { color: var(--disabled); cursor: not-allowed; background: none; }
 .hidden { display: none !important; }

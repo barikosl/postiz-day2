@@ -105,20 +105,57 @@
   function show(id) { $(id).classList.remove('hidden'); }
   function hide(id) { $(id).classList.add('hidden'); }
 
+  // Privacy dropdown (in-page listbox, so the open list is visible on any
+  // device and in screen recordings). Options = exactly what creator_info
+  // returned; nothing is preselected.
   function fillPrivacy() {
-    var sel = $('privacy');
-    var current = sel.value;
-    while (sel.options.length > 1) sel.remove(1);
-    sel.options[0].textContent = t('select_privacy');
+    var list = $('privacy_list');
+    list.textContent = '';
     var opts = (data.creator && data.creator.privacyOptions) || [];
     for (var i = 0; i < opts.length; i++) {
-      var o = document.createElement('option');
-      o.value = opts[i];
-      o.textContent = t(opts[i]);
-      sel.appendChild(o);
+      var li = document.createElement('li');
+      li.setAttribute('role', 'option');
+      li.setAttribute('data-value', opts[i]);
+      li.setAttribute('tabindex', '-1');
+      li.textContent = t(opts[i]);
+      list.appendChild(li);
     }
-    sel.value = current; // keep the owner's choice; never preselect one
+    renderPrivacy();
   }
+
+  function renderPrivacy() {
+    var v = $('privacy').value;
+    var label = $('privacy_label');
+    label.textContent = v ? t(v) : t('select_privacy');
+    label.className = v ? '' : 'placeholder';
+    var branded = $('disclose').checked && $('brandedContent').checked;
+    var items = $('privacy_list').children;
+    for (var i = 0; i < items.length; i++) {
+      var val = items[i].getAttribute('data-value');
+      var off = branded && val === 'SELF_ONLY';
+      items[i].setAttribute('aria-selected', String(val === v));
+      items[i].setAttribute('aria-disabled', String(off));
+      items[i].title = off ? t('branded_not_private') : '';
+    }
+  }
+
+  function setPrivacyOpen(open) {
+    $('privacy_list').classList.toggle('hidden', !open);
+    $('privacy_btn').setAttribute('aria-expanded', String(open));
+  }
+
+  $('privacy_btn').addEventListener('click', function (e) {
+    e.stopPropagation();
+    setPrivacyOpen($('privacy_list').classList.contains('hidden'));
+  });
+  $('privacy_list').addEventListener('click', function (e) {
+    var li = e.target.closest('li');
+    if (!li || li.getAttribute('aria-disabled') === 'true') return;
+    $('privacy').value = li.getAttribute('data-value');
+    setPrivacyOpen(false);
+    update();
+  });
+  document.addEventListener('click', function () { setPrivacyOpen(false); });
 
   function declaration(branded) {
     var el = $('declaration');
@@ -146,10 +183,8 @@
 
     // Branded content cannot be private: grey out "Only me" and clear it.
     var sel = $('privacy');
-    for (var i = 0; i < sel.options.length; i++) {
-      if (sel.options[i].value === 'SELF_ONLY') sel.options[i].disabled = branded;
-    }
     if (branded && sel.value === 'SELF_ONLY') sel.value = '';
+    renderPrivacy();
     branded ? show('privacy_note') : hide('privacy_note');
 
     var note = $('label_note');
@@ -218,7 +253,7 @@
     }).catch(function () { setTimeout(poll, 10000); });
   }
 
-  ['disclose', 'yourBrand', 'brandedContent', 'privacy', 'caption'].forEach(function (id) {
+  ['disclose', 'yourBrand', 'brandedContent', 'caption'].forEach(function (id) {
     $(id).addEventListener(id === 'caption' ? 'input' : 'change', update);
   });
 
