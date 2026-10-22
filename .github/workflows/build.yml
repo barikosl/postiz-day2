@@ -14,7 +14,7 @@ on:
         required: true
       image_tag:
         description: Image tag to publish
-        default: v2.22.1-day2.5
+        default: v2.22.1-day2.6
         required: true
   push:
     branches: [main]
@@ -24,7 +24,7 @@ on:
 
 env:
   POSTIZ_REF: ${{ github.event.inputs.postiz_ref || 'v2.22.1' }}
-  IMAGE_TAG: ${{ github.event.inputs.image_tag || 'v2.22.1-day2.5' }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag || 'v2.22.1-day2.6' }}
   IMAGE: ghcr.io/barikosl/postiz-day2
 
 jobs:
@@ -67,7 +67,7 @@ jobs:
                            -e 's#facebook\.com/v20\.0/dialog#facebook.com/v23.0/dialog#g'
           echo "remaining v20.0 references (expect none):"
           grep -rn 'v20\.0' libraries/nestjs-libraries/src/integrations/social || true
-          echo "day2: tiktok audit ux (creator_info, no privacy default, declarations, processing notice) + creatorInfo @Tool + publish-time creator_info check + day2 branding (favicon/logo/titles) + graph api v20.0 -> v23.0; upstream ${POSTIZ_REF} $(git rev-parse --short HEAD); image ${IMAGE_TAG}" > DAY2_PATCH.txt
+          echo "day2: tiktok audit ux (creator_info, no privacy default, declarations, processing notice) + creatorInfo @Tool + publish-time creator_info check + AES-256-GCM channel tokens (DAY2_TOKEN_KEY) + day2 branding (favicon/logo/titles) + graph api v20.0 -> v23.0; upstream ${POSTIZ_REF} $(git rev-parse --short HEAD); image ${IMAGE_TAG}" > DAY2_PATCH.txt
           git --no-pager diff --stat
 
       - name: Apply Day2 branding assets

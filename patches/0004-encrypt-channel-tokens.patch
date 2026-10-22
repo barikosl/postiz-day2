@@ -1,0 +1,117 @@
+diff --git a/libraries/nestjs-libraries/src/database/prisma/prisma.service.ts b/libraries/nestjs-libraries/src/database/prisma/prisma.service.ts
+index 089afc5..fc3bf35 100644
+--- a/libraries/nestjs-libraries/src/database/prisma/prisma.service.ts
++++ b/libraries/nestjs-libraries/src/database/prisma/prisma.service.ts
+@@ -1,5 +1,95 @@
+ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+ import { PrismaClient } from '@prisma/client';
++import {
++  createCipheriv,
++  createDecipheriv,
++  randomBytes,
++} from 'crypto';
++
++// Day2: OAuth access/refresh tokens of connected channels are encrypted at the
++// application layer (AES-256-GCM) before they reach the database, so a DB dump
++// or backup never contains a usable token. Key: DAY2_TOKEN_KEY (32 bytes,
++// base64), kept outside the database and its backups. Values are tagged
++// "enc:v1:", so rows written before the key existed are still read as plain
++// text and get encrypted on their next write (or by the one-off migration).
++const ENC_PREFIX = 'enc:v1:';
++const TOKEN_FIELDS = ['token', 'refreshToken'];
++const WRITE_ACTIONS = ['create', 'createMany', 'update', 'updateMany', 'upsert'];
++
++function tokenKey(): Buffer | null {
++  const raw = process.env.DAY2_TOKEN_KEY;
++  if (!raw) return null;
++  const key = Buffer.from(raw, 'base64');
++  if (key.length !== 32) {
++    throw new Error('DAY2_TOKEN_KEY must be 32 bytes, base64-encoded');
++  }
++  return key;
++}
++
++export function encryptToken(value: unknown, key = tokenKey()): unknown {
++  if (!key || typeof value !== 'string' || !value || value.startsWith(ENC_PREFIX)) {
++    return value;
++  }
++  const iv = randomBytes(12);
++  const cipher = createCipheriv('aes-256-gcm', key, iv);
++  const ct = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
++  return `${ENC_PREFIX}${iv.toString('base64')}:${cipher
++    .getAuthTag()
++    .toString('base64')}:${ct.toString('base64')}`;
++}
++
++export function decryptToken(value: unknown, key = tokenKey()): unknown {
++  if (typeof value !== 'string' || !value.startsWith(ENC_PREFIX)) {
++    return value;
++  }
++  if (!key) {
++    throw new Error('Encrypted channel token found but DAY2_TOKEN_KEY is not set');
++  }
++  const [iv, tag, ct] = value.slice(ENC_PREFIX.length).split(':');
++  const decipher = createDecipheriv(
++    'aes-256-gcm',
++    key,
++    Buffer.from(iv, 'base64')
++  );
++  decipher.setAuthTag(Buffer.from(tag, 'base64'));
++  return Buffer.concat([
++    decipher.update(Buffer.from(ct, 'base64')),
++    decipher.final(),
++  ]).toString('utf8');
++}
++
++function encryptData(data: any) {
++  if (!data || typeof data !== 'object') return;
++  for (const row of Array.isArray(data) ? data : [data]) {
++    for (const field of TOKEN_FIELDS) {
++      if (row && typeof row[field] === 'string') {
++        row[field] = encryptToken(row[field]);
++      } else if (row && row[field] && typeof row[field].set === 'string') {
++        row[field].set = encryptToken(row[field].set);
++      }
++    }
++  }
++}
++
++// Integration rows also arrive nested (post.integration, etc.), so the whole
++// result is walked; only "enc:v1:" values under token/refreshToken change.
++export function decryptDeep(value: any, depth = 0): any {
++  if (!value || typeof value !== 'object' || depth > 8) return value;
++  if (value instanceof Date || Buffer.isBuffer(value)) return value;
++  if (Array.isArray(value)) {
++    for (let i = 0; i < value.length; i++) value[i] = decryptDeep(value[i], depth + 1);
++    return value;
++  }
++  for (const k of Object.keys(value)) {
++    const v = value[k];
++    if (TOKEN_FIELDS.includes(k) && typeof v === 'string') {
++      value[k] = decryptToken(v);
++    } else if (v && typeof v === 'object') {
++      decryptDeep(v, depth + 1);
++    }
++  }
++  return value;
++}
+ 
+ @Injectable()
+ export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+@@ -12,6 +102,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
+         },
+       ],
+     });
++    tokenKey(); // fail fast on a malformed key
++    this.$use(async (params, next) => {
++      if (params.model === 'Integration' && WRITE_ACTIONS.includes(params.action)) {
++        const args: any = params.args || {};
++        encryptData(args.data);
++        encryptData(args.create);
++        encryptData(args.update);
++      }
++      return decryptDeep(await next(params));
++    });
+   }
+   async onModuleInit() {
+     await this.$connect();
